@@ -668,6 +668,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   postInstall = optionalString buildQtFaststart ''
     install -D tools/qt-faststart -t $bin/bin
+    install -D tools/graph2dot -t $bin/bin
   '';
 
   # Set RUNPATH so that libnvcuvid and libcuda in /run/opengl-driver(-32)/lib can be found.
