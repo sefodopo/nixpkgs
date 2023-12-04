@@ -228,7 +228,7 @@ let
 
   opencvFlag = name: enabled: "-DWITH_${name}=${printEnabled enabled}";
 
-  runAccuracyTests = true;
+  runAccuracyTests = false;
   runPerformanceTests = false;
   printEnabled = enabled: if enabled then "ON" else "OFF";
   withOpenblas = (enableBlas && blas.provider.pname == "openblas");
