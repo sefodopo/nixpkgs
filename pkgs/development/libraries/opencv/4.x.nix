@@ -247,7 +247,7 @@ effectiveStdenv.mkDerivation {
 
   outputs = [
     "out"
-    "package_tests"
+    #"package_tests"
   ];
 
   postUnpack = lib.optionalString buildContrib ''
