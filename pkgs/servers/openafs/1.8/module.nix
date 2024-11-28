@@ -14,11 +14,9 @@
 , fetchpatch
 }:
 
-with (import ./srcs.nix {
-  inherit fetchurl;
-});
-
 let
+  inherit (import ./srcs.nix { inherit fetchurl; }) src version;
+
   modDestDir = "$out/lib/modules/${kernel.modDirVersion}/extra/openafs";
   kernelBuildDir = "${kernel.dev}/lib/modules/${kernel.modDirVersion}/build";
 
@@ -31,6 +29,8 @@ stdenv.mkDerivation {
   pname = "openafs";
   version = "${version}-${kernel.modDirVersion}";
   inherit src;
+
+  patches = [ ];
 
   nativeBuildInputs = [ autoconf automake flex libtool_2 perl which bison ]
     ++ kernel.moduleBuildDependencies;

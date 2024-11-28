@@ -3,20 +3,20 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "websocat";
-  version = "1.11.0";
+  version = "1.14.0";
 
   src = fetchFromGitHub {
     owner = "vi";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-FomP5ykHc5oAA7zF7r+PXHf30KaTmYTmVm6Mwf/tPdQ=";
+    sha256 = "sha256-v5+9cbKe3c12/SrW7mgN6tvQIiAuweqvMIl46Ce9f2A=";
   };
 
-  cargoSha256 = "sha256-YVI1+WsDMoznRTjnzwlPTdJMRPsQFYtzssoU0sQwQfA=";
+  cargoHash = "sha256-2THUFcaM4niB7YiQiRXJQuaQu02fpgZKPWrejfhmRQ0=";
 
   nativeBuildInputs = [ pkg-config makeWrapper ];
   buildInputs = [ openssl ]
-    ++ lib.optionals stdenv.isDarwin [ libiconv Security ];
+    ++ lib.optionals stdenv.hostPlatform.isDarwin [ libiconv Security ];
 
   buildFeatures = [ "ssl" ];
 
@@ -37,5 +37,6 @@ rustPlatform.buildRustPackage rec {
     changelog = "https://github.com/vi/websocat/releases/tag/v${version}";
     license = licenses.mit;
     maintainers = with maintainers; [ thoughtpolice Br1ght0ne ];
+    mainProgram = "websocat";
   };
 }

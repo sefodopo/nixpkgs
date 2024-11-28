@@ -10,19 +10,19 @@
 , portaudio
 , libsndfile
 , flac
-, usePulseAudio ? config.pulseaudio or stdenv.isLinux
+, usePulseAudio ? config.pulseaudio or stdenv.hostPlatform.isLinux
 , libpulseaudio
 }:
 
 stdenv.mkDerivation rec {
   pname = "libopenmpt";
-  version = "0.7.2";
+  version = "0.7.11";
 
   outputs = [ "out" "dev" "bin" ];
 
   src = fetchurl {
     url = "https://lib.openmpt.org/files/libopenmpt/src/libopenmpt-${version}+release.autotools.tar.gz";
-    hash = "sha256-UJFD5aTzsT3Zjq4om/7BtWTt3XG7x8p4ZLgoNeMTMOE=";
+    hash = "sha256-U6eYuMbi4faV6K0F6ToMG1MZnlqpmBg3xBaWs3BSB2c=";
   };
 
   enableParallelBuilding = true;
@@ -57,6 +57,7 @@ stdenv.mkDerivation rec {
 
   meta = with lib; {
     description = "Cross-platform C++ and C library to decode tracked music files into a raw PCM audio stream";
+    mainProgram = "openmpt123";
     longDescription = ''
       libopenmpt is a cross-platform C++ and C library to decode tracked music files (modules) into a raw PCM audio stream.
       openmpt123 is a cross-platform command-line or terminal based module file player.

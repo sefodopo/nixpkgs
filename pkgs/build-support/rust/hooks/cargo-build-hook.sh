@@ -1,4 +1,4 @@
-declare -a cargoBuildFlags
+# shellcheck shell=bash disable=SC2154,SC2164
 
 cargoBuildHook() {
     echo "Executing cargoBuildHook"
@@ -9,42 +9,38 @@ cargoBuildHook() {
     # separateDebugInfo.
     export "CARGO_PROFILE_${cargoBuildType@U}_STRIP"=false
 
-    if [ ! -z "${buildAndTestSubdir-}" ]; then
+    if [ -n "${buildAndTestSubdir-}" ]; then
         # ensure the output doesn't end up in the subdirectory
-        export CARGO_TARGET_DIR="$(pwd)/target"
+        CARGO_TARGET_DIR="$(pwd)/target"
+        export CARGO_TARGET_DIR
 
         pushd "${buildAndTestSubdir}"
     fi
 
+    local flagsArray=(
+        "-j" "$NIX_BUILD_CORES"
+        "--target" "@rustHostPlatformSpec@"
+        "--offline"
+    )
+
     if [ "${cargoBuildType}" != "debug" ]; then
-        cargoBuildProfileFlag="--${cargoBuildType}"
+        flagsArray+=("--profile" "${cargoBuildType}")
     fi
 
     if [ -n "${cargoBuildNoDefaultFeatures-}" ]; then
-        cargoBuildNoDefaultFeaturesFlag=--no-default-features
+        flagsArray+=("--no-default-features")
     fi
 
     if [ -n "${cargoBuildFeatures-}" ]; then
-        cargoBuildFeaturesFlag="--features=${cargoBuildFeatures// /,}"
+        flagsArray+=("--features=$(concatStringsSep "," cargoBuildFeatures)")
     fi
 
-    (
-    set -x
-    env \
-      "CC_@rustBuildPlatform@=@ccForBuild@" \
-      "CXX_@rustBuildPlatform@=@cxxForBuild@" \
-      "CC_@rustTargetPlatform@=@ccForHost@" \
-      "CXX_@rustTargetPlatform@=@cxxForHost@" \
-      cargo build -j $NIX_BUILD_CORES \
-        --target @rustTargetPlatformSpec@ \
-        --frozen \
-        ${cargoBuildProfileFlag} \
-        ${cargoBuildNoDefaultFeaturesFlag} \
-        ${cargoBuildFeaturesFlag} \
-        ${cargoBuildFlags}
-    )
+    concatTo flagsArray cargoBuildFlags
 
-    if [ ! -z "${buildAndTestSubdir-}" ]; then
+    echoCmd 'cargoBuildHook flags' "${flagsArray[@]}"
+    @setEnv@ cargo build "${flagsArray[@]}"
+
+    if [ -n "${buildAndTestSubdir-}" ]; then
         popd
     fi
 

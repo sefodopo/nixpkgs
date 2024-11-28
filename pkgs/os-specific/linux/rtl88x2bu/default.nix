@@ -1,14 +1,20 @@
-{ lib, stdenv, fetchFromGitHub, kernel, bc }:
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  kernel,
+  bc,
+}:
 
 stdenv.mkDerivation {
   pname = "rtl88x2bu";
-  version = "${kernel.version}-unstable-2023-07-20";
+  version = "${kernel.version}-unstable-2024-06-09";
 
   src = fetchFromGitHub {
     owner = "morrownr";
     repo = "88x2bu-20210702";
-    rev = "28bcb8b3eb4a531727c7a48001fa91903492fd1a";
-    sha256 = "sha256-LeCPu9ypJUdKV4lwJIy934g+VqD1S6P0fgnczTI3z7c=";
+    rev = "62f3a86a2687fe98bd441e0aff5adf87d95c238a";
+    hash = "sha256-gQWk1nhtT0W2dY5uQitWabBGEDfZpmJAoJg+j2ndO00=";
   };
 
   hardeningDisable = [ "pic" ];
@@ -34,6 +40,6 @@ stdenv.mkDerivation {
     homepage = "https://github.com/morrownr/88x2bu-20210702";
     license = licenses.gpl2Only;
     platforms = platforms.linux;
-    maintainers = with maintainers; [ otavio ralith ];
+    maintainers = with maintainers; [ otavio ];
   };
 }

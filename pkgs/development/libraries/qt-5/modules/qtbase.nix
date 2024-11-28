@@ -4,8 +4,7 @@
 , coreutils, bison, flex, gdb, gperf, lndir, perl, pkg-config, python3
 , which
   # darwin support
-, libiconv, libobjc, xcbuild, AGL, AppKit, ApplicationServices, AVFoundation, Carbon, Cocoa, CoreAudio, CoreBluetooth
-, CoreLocation, CoreServices, DiskArbitration, Foundation, OpenGL, MetalKit, IOKit
+, apple-sdk_13, darwinMinVersionHook, xcbuild
 
 , dbus, fontconfig, freetype, glib, harfbuzz, icu, libdrm, libX11, libXcomposite
 , libXcursor, libXext, libXi, libXrender, libinput, libjpeg, libpng , libxcb
@@ -15,9 +14,10 @@
   # optional dependencies
 , cups ? null, postgresql ? null
 , withGtk3 ? false, dconf, gtk3
+, withQttranslation ? true, qttranslations ? null
 
   # options
-, libGLSupported ? !stdenv.isDarwin
+, libGLSupported ? !stdenv.hostPlatform.isDarwin
 , libGL
   # qmake detection for libmysqlclient does not seem to work when cross compiling
 , mysqlSupport ? stdenv.hostPlatform == stdenv.buildPlatform
@@ -28,13 +28,27 @@
 , developerBuild ? false
 , decryptSslTraffic ? false
 , testers
+, buildPackages
 }:
 
 let
   debugSymbols = debug || developerBuild;
+  qtPlatformCross = plat: with plat;
+    if isLinux
+    then "linux-generic-g++"
+    else throw "Please add a qtPlatformCross entry for ${plat.config}";
+
+  # Per https://doc.qt.io/qt-5/macos.html#supported-versions: deployment target = 10.13, build SDK = 13.x or 14.x.
+  # Despite advertising support for the macOS 14 SDK, the build system sets the maximum to 13 and complains
+  # about 14, so we just use that.
+  deploymentTarget = "10.13";
+  darwinVersionInputs = [
+    apple-sdk_13
+    (darwinMinVersionHook deploymentTarget)
+  ];
 in
 
-stdenv.mkDerivation (finalAttrs: {
+stdenv.mkDerivation (finalAttrs: ({
   pname = "qtbase";
   inherit qtCompatVersion src version;
   debug = debugSymbols;
@@ -48,13 +62,8 @@ stdenv.mkDerivation (finalAttrs: {
     # Image formats
     libjpeg libpng
     pcre2
-  ] ++ (
-    if stdenv.isDarwin then [
-      # TODO: move to buildInputs, this should not be propagated.
-      AGL AppKit ApplicationServices AVFoundation Carbon Cocoa CoreAudio CoreBluetooth
-      CoreLocation CoreServices DiskArbitration Foundation OpenGL
-      libobjc libiconv MetalKit IOKit
-    ] else [
+  ] ++ lib.optionals (!stdenv.hostPlatform.isDarwin) (
+    [
       dbus glib udev
 
       # Text rendering
@@ -69,24 +78,32 @@ stdenv.mkDerivation (finalAttrs: {
   );
 
   buildInputs = [ python3 at-spi2-core ]
-    ++ lib.optionals (!stdenv.isDarwin)
+    ++ lib.optionals (!stdenv.hostPlatform.isDarwin)
     (
       [ libinput ]
       ++ lib.optional withGtk3 gtk3
     )
+    ++ lib.optional stdenv.hostPlatform.isDarwin darwinVersionInputs
     ++ lib.optional developerBuild gdb
     ++ lib.optional (cups != null) cups
     ++ lib.optional (mysqlSupport) libmysqlclient
     ++ lib.optional (postgresql != null) postgresql;
 
   nativeBuildInputs = [ bison flex gperf lndir perl pkg-config which ]
-    ++ lib.optionals stdenv.isDarwin [ xcbuild ];
+    ++ lib.optionals stdenv.hostPlatform.isDarwin [ xcbuild ];
+
+  } // lib.optionalAttrs (stdenv.buildPlatform != stdenv.hostPlatform) {
+    # `qtbase` expects to find `cc` (with no prefix) in the
+    # `$PATH`, so the following is needed even if
+    # `stdenv.buildPlatform.canExecute stdenv.hostPlatform`
+    depsBuildBuild = [ buildPackages.stdenv.cc ];
+  } // {
 
   propagatedNativeBuildInputs = [ lndir ];
 
   # libQt5Core links calls CoreFoundation APIs that call into the system ICU. Binaries linked
   # against it will crash during build unless they can access `/usr/share/icu/icudtXXl.dat`.
-  propagatedSandboxProfile = lib.optionalString stdenv.isDarwin ''
+  propagatedSandboxProfile = lib.optionalString stdenv.hostPlatform.isDarwin ''
     (allow file-read* (subpath "/usr/share/icu"))
   '';
 
@@ -127,20 +144,32 @@ stdenv.mkDerivation (finalAttrs: {
 
     patchShebangs ./bin
   '' + (
-    if stdenv.isDarwin then ''
-        sed -i \
-            -e 's|/usr/bin/xcode-select|xcode-select|' \
-            -e 's|/usr/bin/xcrun|xcrun|' \
-            -e 's|/usr/bin/xcodebuild|xcodebuild|' \
-            -e 's|QMAKE_CONF_COMPILER=`getXQMakeConf QMAKE_CXX`|QMAKE_CXX="clang++"\nQMAKE_CONF_COMPILER="clang++"|' \
-            ./configure
-            substituteInPlace ./mkspecs/common/mac.conf \
-                --replace "/System/Library/Frameworks/OpenGL.framework/" "${OpenGL}/Library/Frameworks/OpenGL.framework/" \
-                --replace "/System/Library/Frameworks/AGL.framework/" "${AGL}/Library/Frameworks/AGL.framework/"
+    if stdenv.hostPlatform.isDarwin then ''
+      for file in \
+        configure \
+        mkspecs/features/mac/asset_catalogs.prf \
+        mkspecs/features/mac/default_pre.prf \
+        mkspecs/features/mac/sdk.mk \
+        mkspecs/features/mac/sdk.prf
+      do
+        substituteInPlace "$file" \
+          --replace-quiet /usr/bin/xcode-select '${lib.getExe' xcbuild "xcode-select"}' \
+          --replace-quiet /usr/bin/xcrun '${lib.getExe' xcbuild "xcrun"}' \
+          --replace-quiet /usr/libexec/PlistBuddy '${lib.getExe' xcbuild "PlistBuddy"}'
+      done
+
+      substituteInPlace configure \
+        --replace-fail /System/Library/Frameworks/Cocoa.framework "$SDKROOT/System/Library/Frameworks/Cocoa.framework"
+
+      substituteInPlace mkspecs/common/macx.conf \
+        --replace-fail 'CONFIG += ' 'CONFIG += no_default_rpath ' \
+        --replace-fail \
+          'QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.13' \
+          'QMAKE_MACOSX_DEPLOYMENT_TARGET = ${deploymentTarget}'
     '' else lib.optionalString libGLSupported ''
       sed -i mkspecs/common/linux.conf \
-          -e "/^QMAKE_INCDIR_OPENGL/ s|$|${libGL.dev or libGL}/include|" \
-          -e "/^QMAKE_LIBDIR_OPENGL/ s|$|${libGL.out}/lib|"
+          -e "/^QMAKE_INCDIR_OPENGL/ s|$|${lib.getDev libGL}/include|" \
+          -e "/^QMAKE_LIBDIR_OPENGL/ s|$|${lib.getLib libGL}/lib|"
     '' + lib.optionalString (stdenv.hostPlatform.isx86_32 && stdenv.cc.isGNU) ''
       sed -i mkspecs/common/gcc-base-unix.conf \
           -e "/^QMAKE_LFLAGS_SHLIB/ s/-shared/-shared -static-libgcc/"
@@ -161,6 +190,13 @@ stdenv.mkDerivation (finalAttrs: {
     export MAKEFLAGS+=" -j$NIX_BUILD_CORES"
 
     ./bin/syncqt.pl -version $version
+  '' + lib.optionalString (!stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
+    # QT's configure script will refuse to use pkg-config unless these two environment variables are set
+    export PKG_CONFIG_SYSROOT_DIR=/
+    export PKG_CONFIG_LIBDIR=${lib.getLib pkg-config}/lib
+    echo "QMAKE_LFLAGS=''${LDFLAGS}" >> mkspecs/devices/${qtPlatformCross stdenv.hostPlatform}/qmake.conf
+    echo "QMAKE_CFLAGS=''${CFLAGS}" >> mkspecs/devices/${qtPlatformCross stdenv.hostPlatform}/qmake.conf
+    echo "QMAKE_CXXFLAGS=''${CXXFLAGS}" >> mkspecs/devices/${qtPlatformCross stdenv.hostPlatform}/qmake.conf
   '';
 
   postConfigure = ''
@@ -185,21 +221,34 @@ stdenv.mkDerivation (finalAttrs: {
     done
   '';
 
-  env.NIX_CFLAGS_COMPILE = toString ([
-    "-Wno-error=sign-compare" # freetype-2.5.4 changed signedness of some struct fields
-    ''-DNIXPKGS_QTCOMPOSE="${libX11.out}/share/X11/locale"''
-    ''-DLIBRESOLV_SO="${stdenv.cc.libc.out}/lib/libresolv"''
-    ''-DNIXPKGS_LIBXCURSOR="${libXcursor.out}/lib/libXcursor"''
-  ] ++ lib.optional libGLSupported ''-DNIXPKGS_MESA_GL="${libGL.out}/lib/libGL"''
-    ++ lib.optional stdenv.isLinux "-DUSE_X11"
+  env = {
+    NIX_CFLAGS_COMPILE = toString ([
+      "-Wno-error=sign-compare" # freetype-2.5.4 changed signedness of some struct fields
+    ] ++ lib.optionals (stdenv.buildPlatform != stdenv.hostPlatform) [
+      "-Wno-warn=free-nonheap-object"
+      "-Wno-free-nonheap-object"
+      "-w"
+    ] ++ [
+      ''-DNIXPKGS_QTCOMPOSE="${libX11.out}/share/X11/locale"''
+      ''-DLIBRESOLV_SO="${stdenv.cc.libc.out}/lib/libresolv"''
+      ''-DNIXPKGS_LIBXCURSOR="${libXcursor.out}/lib/libXcursor"''
+    ] ++ lib.optional libGLSupported ''-DNIXPKGS_MESA_GL="${libGL.out}/lib/libGL"''
+    ++ lib.optional stdenv.hostPlatform.isLinux "-DUSE_X11"
     ++ lib.optionals (stdenv.hostPlatform.system == "x86_64-darwin") [
       # ignore "is only available on macOS 10.12.2 or newer" in obj-c code
       "-Wno-error=unguarded-availability"
     ]
     ++ lib.optionals withGtk3 [
-         ''-DNIXPKGS_QGTK3_XDG_DATA_DIRS="${gtk3}/share/gsettings-schemas/${gtk3.name}"''
-         ''-DNIXPKGS_QGTK3_GIO_EXTRA_MODULES="${dconf.lib}/lib/gio/modules"''
-  ] ++ lib.optional decryptSslTraffic "-DQT_DECRYPT_SSL_TRAFFIC");
+      ''-DNIXPKGS_QGTK3_XDG_DATA_DIRS="${gtk3}/share/gsettings-schemas/${gtk3.name}"''
+      ''-DNIXPKGS_QGTK3_GIO_EXTRA_MODULES="${dconf.lib}/lib/gio/modules"''
+    ] ++ lib.optional decryptSslTraffic "-DQT_DECRYPT_SSL_TRAFFIC");
+  } // lib.optionalAttrs (stdenv.buildPlatform != stdenv.hostPlatform) {
+    NIX_CFLAGS_COMPILE_FOR_BUILD = toString ([
+      "-Wno-warn=free-nonheap-object"
+      "-Wno-free-nonheap-object"
+      "-w"
+    ]);
+  };
 
   prefixKey = "-prefix ";
 
@@ -208,6 +257,9 @@ stdenv.mkDerivation (finalAttrs: {
   # To prevent these failures, we need to override PostgreSQL detection.
   PSQL_LIBS = lib.optionalString (postgresql != null) "-L${postgresql.lib}/lib -lpq";
 
+  } // lib.optionalAttrs (stdenv.buildPlatform != stdenv.hostPlatform) {
+  configurePlatforms = [ ];
+  } // {
   # TODO Remove obsolete and useless flags once the build will be totally mastered
   configureFlags = [
     "-plugindir $(out)/$(qtPluginPrefix)"
@@ -234,10 +286,15 @@ stdenv.mkDerivation (finalAttrs: {
     "-L" "${icu.out}/lib"
     "-I" "${icu.dev}/include"
     "-pch"
+  ] ++ lib.optionals (stdenv.hostPlatform != stdenv.buildPlatform) [
+    "-device ${qtPlatformCross stdenv.hostPlatform}"
+    "-device-option CROSS_COMPILE=${stdenv.cc.targetPrefix}"
   ]
   ++ lib.optional debugSymbols "-debug"
   ++ lib.optionals developerBuild [
     "-developer-build"
+    "-no-warnings-are-errors"
+  ] ++ lib.optionals (stdenv.buildPlatform != stdenv.hostPlatform) [
     "-no-warnings-are-errors"
   ] ++ (if (!stdenv.hostPlatform.isx86_64) then [
     "-no-sse2"
@@ -277,11 +334,12 @@ stdenv.mkDerivation (finalAttrs: {
     ''-${lib.optionalString (!buildTests) "no"}make tests''
   ]
     ++ (
-      if stdenv.isDarwin then [
+      if stdenv.hostPlatform.isDarwin then [
       "-no-fontconfig"
       "-qt-freetype"
       "-qt-libpng"
       "-no-framework"
+      "-no-rpath"
     ] else [
       "-rpath"
     ] ++ [
@@ -310,6 +368,9 @@ stdenv.mkDerivation (finalAttrs: {
     ] ++ lib.optionals (mysqlSupport) [
       "-L" "${libmysqlclient}/lib"
       "-I" "${libmysqlclient}/include"
+    ] ++ lib.optional (withQttranslation && (qttranslations != null)) [
+      # depends on x11
+      "-translationdir" "${qttranslations}/translations"
     ]
   );
 
@@ -353,7 +414,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   meta = with lib; {
     homepage = "https://www.qt.io/";
-    description = "A cross-platform application framework for C++";
+    description = "Cross-platform application framework for C++";
     license = with licenses; [ fdl13Plus gpl2Plus lgpl21Plus lgpl3Plus ];
     maintainers = with maintainers; [ qknight ttuegel periklis bkchr ];
     pkgConfigModules = [
@@ -378,4 +439,4 @@ stdenv.mkDerivation (finalAttrs: {
     platforms = platforms.unix;
   };
 
-})
+}))

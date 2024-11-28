@@ -1,25 +1,15 @@
-{ lib, stdenv, fetchFromGitHub, postgresql }:
+{ lib, stdenv, fetchFromGitHub, postgresql, buildPostgresqlExtension }:
 
-stdenv.mkDerivation rec {
+buildPostgresqlExtension rec {
   pname = "pg_topn";
-  version = "2.5.0";
-
-  buildInputs = [ postgresql ];
+  version = "2.7.0";
 
   src = fetchFromGitHub {
     owner  = "citusdata";
     repo   = "postgresql-topn";
     rev    = "refs/tags/v${version}";
-    sha256 = "sha256-BqOPnIReV6HnMQkqAGxB3PI10gh9ZEn4IN3A+g1h7/M=";
+    sha256 = "sha256-lP6Iil/BUv4ga+co+oBpKv1FBqFuBGfNjueEolM6png=";
   };
-
-  installPhase = ''
-    mkdir -p $out/{lib,share/postgresql/extension}
-
-    cp *.so      $out/lib
-    cp *.sql     $out/share/postgresql/extension
-    cp *.control $out/share/postgresql/extension
-  '';
 
   meta = with lib; {
     description = "Efficient querying of 'top values' for PostgreSQL";

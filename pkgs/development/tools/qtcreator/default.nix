@@ -20,6 +20,7 @@
 , wrapQtAppsHook
 , yaml-cpp
 , litehtml
+, libsecret
 , gumbo
 , llvmPackages
 , rustc-demangle
@@ -29,11 +30,11 @@
 
 stdenv.mkDerivation rec {
   pname = "qtcreator";
-  version = "11.0.0";
+  version = "14.0.2";
 
   src = fetchurl {
-    url = "https://download.qt.io/official_releases/${pname}/${lib.versions.majorMinor version}/${version}/qt-creator-opensource-src-${version}.tar.xz";
-    hash = "sha256-2/RPVfsDg00nC+3v9pWsT8Aq862oRfW575graxWaFDA=";
+    url = "mirror://qt/official_releases/${pname}/${lib.versions.majorMinor version}/${version}/qt-creator-opensource-src-${version}.tar.xz";
+    hash = "sha256-stL4eLtpKKjm4w2HYAvdk89ATCYZoVHGS9zcjNB4OJI=";
   };
 
   nativeBuildInputs = [
@@ -59,6 +60,7 @@ stdenv.mkDerivation rec {
     qtquicktimeline
     yaml-cpp
     litehtml
+    libsecret
     gumbo
     llvmPackages.libclang
     llvmPackages.llvm
@@ -84,11 +86,6 @@ stdenv.mkDerivation rec {
     "--set-default PERFPROFILER_PARSER_FILEPATH ${lib.getBin perf}/bin"
   ];
 
-  postInstall = ''
-    substituteInPlace $out/share/applications/org.qt-project.qtcreator.desktop \
-      --replace "Exec=qtcreator" "Exec=$out/bin/qtcreator"
-  '';
-
   meta = with lib; {
     description = "Cross-platform IDE tailored to the needs of Qt developers";
     longDescription = ''
@@ -97,7 +94,7 @@ stdenv.mkDerivation rec {
       advanced code editor, a visual debugger and a GUI designer.
     '';
     homepage = "https://wiki.qt.io/Qt_Creator";
-    license = licenses.lgpl3Plus;
+    license = licenses.gpl3Only; # annotated with The Qt Company GPL Exception 1.0
     maintainers = [ maintainers.rewine ];
     platforms = platforms.linux;
   };

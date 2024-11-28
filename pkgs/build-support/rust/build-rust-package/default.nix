@@ -1,7 +1,7 @@
 { lib
 , importCargoLock
 , fetchCargoTarball
-, rust
+, fetchCargoVendor
 , stdenv
 , callPackage
 , cargoBuildHook
@@ -37,6 +37,8 @@
 , cargoDepsHook ? ""
 , buildType ? "release"
 , meta ? {}
+, useFetchCargoVendor ? false
+, cargoDeps ? null
 , cargoLock ? null
 , cargoVendorDir ? null
 , checkType ? buildType
@@ -59,16 +61,22 @@
 , buildAndTestSubdir ? null
 , ... } @ args:
 
-assert cargoVendorDir == null && cargoLock == null
+assert cargoVendorDir == null && cargoDeps == null && cargoLock == null
     -> !(args ? cargoSha256 && args.cargoSha256 != null) && !(args ? cargoHash && args.cargoHash != null)
-    -> throw "cargoSha256, cargoHash, cargoVendorDir, or cargoLock must be set";
-assert buildType == "release" || buildType == "debug";
+    -> throw "cargoHash, cargoVendorDir, cargoDeps, or cargoLock must be set";
 
 let
 
-  cargoDeps =
+  cargoDeps' =
     if cargoVendorDir != null then null
+    else if cargoDeps != null then cargoDeps
     else if cargoLock != null then importCargoLock cargoLock
+    else if useFetchCargoVendor then fetchCargoVendor ({
+      inherit src srcs sourceRoot preUnpack unpackPhase postUnpack;
+      name = cargoDepsName;
+      patches = cargoPatches;
+      hash = args.cargoHash;
+    } // depsExtraArgs)
     else fetchCargoTarball ({
       inherit src srcs sourceRoot preUnpack unpackPhase postUnpack cargoUpdateHook;
       name = cargoDepsName;
@@ -76,21 +84,16 @@ let
     } // lib.optionalAttrs (args ? cargoHash) {
       hash = args.cargoHash;
     } // lib.optionalAttrs (args ? cargoSha256) {
-      sha256 = args.cargoSha256;
+      sha256 = lib.warn "cargoSha256 is deprecated. Please use cargoHash with SRI hash instead" args.cargoSha256;
     } // depsExtraArgs);
 
-  target = rust.toRustTargetSpec stdenv.hostPlatform;
+  target = stdenv.hostPlatform.rust.rustcTargetSpec;
   targetIsJSON = lib.hasSuffix ".json" target;
   useSysroot = targetIsJSON && !__internal_dontAddSysroot;
 
-  # see https://github.com/rust-lang/cargo/blob/964a16a28e234a3d397b2a7031d4ab4a428b1391/src/cargo/core/compiler/compile_kind.rs#L151-L168
-  # the "${}" is needed to transform the path into a /nix/store path before baseNameOf
-  shortTarget = if targetIsJSON then
-      (lib.removeSuffix ".json" (builtins.baseNameOf "${target}"))
-    else target;
-
   sysroot = callPackage ./sysroot { } {
-    inherit target shortTarget;
+    inherit target;
+    shortTarget = stdenv.hostPlatform.rust.cargoShortTarget;
     RUSTFLAGS = args.RUSTFLAGS or "";
     originalCargoToml = src + /Cargo.toml; # profile info is later extracted
   };
@@ -101,10 +104,16 @@ in
 # See https://os.phil-opp.com/testing/ for more information.
 assert useSysroot -> !(args.doCheck or true);
 
-stdenv.mkDerivation ((removeAttrs args [ "depsExtraArgs" "cargoUpdateHook" "cargoLock" ]) // lib.optionalAttrs useSysroot {
+stdenv.mkDerivation ((removeAttrs args [ "depsExtraArgs" "cargoUpdateHook" "cargoDeps" "cargoLock" ]) // lib.optionalAttrs useSysroot {
   RUSTFLAGS = "--sysroot ${sysroot} " + (args.RUSTFLAGS or "");
+} // lib.optionalAttrs (stdenv.hostPlatform.isDarwin && buildType == "debug") {
+  RUSTFLAGS =
+    "-C split-debuginfo=packed "
+    + lib.optionalString useSysroot "--sysroot ${sysroot} "
+    + (args.RUSTFLAGS or "");
 } // {
-  inherit buildAndTestSubdir cargoDeps;
+  cargoDeps = cargoDeps';
+  inherit buildAndTestSubdir;
 
   cargoBuildType = buildType;
 
@@ -156,16 +165,11 @@ stdenv.mkDerivation ((removeAttrs args [ "depsExtraArgs" "cargoUpdateHook" "carg
 
   strictDeps = true;
 
-  meta = {
+  meta = meta // {
+    badPlatforms = meta.badPlatforms or [] ++ rustc.badTargetPlatforms;
     # default to Rust's platforms
-    platforms = rustc.meta.platforms ++ [
-      # Platforms without host tools from
-      # https://doc.rust-lang.org/nightly/rustc/platform-support.html
-      "armv7a-darwin"
-      "armv5tel-linux" "armv7a-linux" "m68k-linux" "riscv32-linux"
-      "armv6l-netbsd"
-      "x86_64-redox"
-      "wasm32-wasi"
-    ];
-  } // meta;
+    platforms = lib.intersectLists
+      meta.platforms or lib.platforms.all
+      rustc.targetPlatforms;
+  };
 })

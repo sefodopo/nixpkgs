@@ -1,9 +1,7 @@
 { lib
 , stdenv
-, writeText
 , rustPlatform
 , fetchFromGitHub
-, fetchpatch
 , pkg-config
 , protobuf
 , makeWrapper
@@ -16,24 +14,33 @@
 , openvpn-mullvad
 , shadowsocks-rust
 , installShellFiles
+, writeShellScriptBin
 }:
+let
+  # NOTE(cole-h): This is necessary because wireguard-go-rs executes go in its build.rs (whose goal
+  # is to  produce $OUT_DIR/libwg.a), and a mixed Rust-Go build is non-trivial (read: I didn't want
+  # to attempt it). So, we just fake the "go" binary and do what it would have done: put libwg.a
+  # under $OUT_DIR so that it can be linked against.
+  fakeGoCopyLibwg = writeShellScriptBin "go" ''
+    [ ! -e "$OUT_DIR"/libwg.a ] && cp ${libwg}/lib/libwg.a "$OUT_DIR"/libwg.a
+  '';
+in
 rustPlatform.buildRustPackage rec {
   pname = "mullvad";
-  version = "2023.3";
+  version = "2024.7";
 
   src = fetchFromGitHub {
     owner = "mullvad";
     repo = "mullvadvpn-app";
     rev = version;
-    hash = "sha256-as/d14xVTqJvb+QxzEyZWh1EMRVpE8cDQRbdc4R4pcU=";
+    fetchSubmodules = true;
+    hash = "sha256-me0e8Cb1dRrnAeiCmsXiclcDMruVLV3t0eGAM3RU1es=";
   };
 
-  cargoLock = {
-    lockFile = ./Cargo.lock;
-    outputHashes = {
-      "udp-over-tcp-0.3.0" = "sha256-5PeaM7/zhux1UdlaKpnQ2yIdmFy1n2weV/ux9lSRha4=";
-    };
-  };
+  useFetchCargoVendor = true;
+  cargoHash = "sha256-HCW2brAQK20oJIFKrdqHqRmihnKnxGZfyt5T8Yrt1z8=";
+
+  checkFlags = "--skip=version_check";
 
   nativeBuildInputs = [
     pkg-config
@@ -41,6 +48,7 @@ rustPlatform.buildRustPackage rec {
     makeWrapper
     git
     installShellFiles
+    fakeGoCopyLibwg
   ];
 
   buildInputs = [
@@ -48,13 +56,6 @@ rustPlatform.buildRustPackage rec {
     libnftnl
     libmnl
   ];
-
-  # talpid-core wants libwg.a in build/lib/{triple}
-  preBuild = ''
-    dest=build/lib/${stdenv.targetPlatform.config}
-    mkdir -p $dest
-    ln -s ${libwg}/lib/libwg.a $dest
-  '';
 
   postInstall = ''
     compdir=$(mktemp -d)

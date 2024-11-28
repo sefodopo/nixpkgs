@@ -1,67 +1,105 @@
-{ buildPythonPackage
-, chalice
-, cherrypy
-, django
-, falcon
-, fastapi
-, fetchFromGitHub
-, flask
-, flask-sockets
-, lib
-, moto
-, numpy
-, pyramid
-, pytest-asyncio
-, pytestCheckHook
-, sanic
-, sanic-testing
-, slack-sdk
-, starlette
-, tornado
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+
+  # build-system
+  setuptools,
+
+  # dependencies
+  slack-sdk,
+
+  # optional-dependencies
+  # - async
+  aiohttp,
+  websockets,
+  # - adapter
+  bottle,
+  chalice,
+  cherrypy,
+  django,
+  falcon,
+  fastapi,
+  flask,
+  flask-sockets,
+  gunicorn,
+  moto,
+  pyramid,
+  sanic,
+  sanic-testing,
+  starlette,
+  tornado,
+  uvicorn,
+  websocket-client,
+  werkzeug,
+
+  # tests
+  docker,
+  pytest-asyncio,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
   pname = "slack-bolt";
-  version = "1.18.0";
-  format = "setuptools";
+  version = "1.21.2";
+  pyproject = true;
 
   src = fetchFromGitHub {
     owner = "slackapi";
     repo = "bolt-python";
     rev = "refs/tags/v${version}";
-    hash = "sha256-s9djd/MDNnyNkjkeApY6Fb1mhI6iop8RghaSJdi4eAs=";
+    hash = "sha256-4zEg60f3wtLnzrZU4mZMJmF6hO0EiHDTx6iw4WDsx0U=";
   };
 
-  # The packaged pytest-runner version is too new as of 2023-07-27. It's not really needed anyway. Unfortunately,
-  # pythonRelaxDepsHook doesn't work on setup_requires packages.
   postPatch = ''
-    substituteInPlace setup.py --replace "pytest-runner==5.2" ""
+    substituteInPlace pyproject.toml \
+      --replace-fail '"pytest-runner==5.2",' ""
   '';
 
-  propagatedBuildInputs = [ slack-sdk ];
+  build-system = [ setuptools ];
+
+  dependencies = [ slack-sdk ];
+
+  optional-dependencies = {
+    async = [
+      aiohttp
+      websockets
+    ];
+    adapter = [
+      bottle
+      chalice
+      cherrypy
+      django
+      falcon
+      fastapi
+      flask
+      flask-sockets
+      gunicorn
+      moto
+      pyramid
+      sanic
+      sanic-testing
+      starlette
+      tornado
+      uvicorn
+      websocket-client
+      werkzeug
+    ];
+  };
+
+  pythonImportsCheck = [ "slack_bolt" ];
 
   nativeCheckInputs = [
-    chalice
-    cherrypy
-    django
-    falcon
-    fastapi
-    flask
-    flask-sockets
-    moto
-    pyramid
+    docker
     pytest-asyncio
     pytestCheckHook
-    sanic
-    sanic-testing
-    starlette
-    tornado
-  ];
+  ] ++ lib.flatten (builtins.attrValues optional-dependencies);
 
-  # Work around "Read-only file system: '/homeless-shelter'" errors
   preCheck = ''
     export HOME="$(mktemp -d)"
   '';
+
+  __darwinAllowLocalNetworking = true;
 
   disabledTestPaths = [
     # boddle is not packaged as of 2023-07-15
@@ -70,19 +108,14 @@ buildPythonPackage rec {
 
   disabledTests = [
     # Require network access
-    "test_events"
-    "test_interactions"
-    "test_lazy_listener_calls"
-    "test_lazy_listeners"
     "test_failure"
   ];
 
-  pythonImportsCheck = [ "slack_bolt" ];
-
-  meta = with lib; {
-    description = "A framework to build Slack apps using Python";
+  meta = {
+    description = "Framework to build Slack apps using Python";
     homepage = "https://github.com/slackapi/bolt-python";
-    license = licenses.mit;
-    maintainers = with maintainers; [ samuela ];
+    changelog = "https://github.com/slackapi/bolt-python/releases/tag/v${version}";
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ samuela ];
   };
 }

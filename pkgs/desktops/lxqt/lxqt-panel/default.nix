@@ -1,81 +1,90 @@
 { lib
-, mkDerivation
+, stdenv
 , fetchFromGitHub
 , cmake
 , pkg-config
 , alsa-lib
+, libdbusmenu-lxqt
 , kguiaddons
 , kwindowsystem
+, layer-shell-qt
 , libXdamage
+, libXdmcp
+, libXtst
 , libdbusmenu
 , liblxqt
+, libpthreadstubs
 , libpulseaudio
 , libqtxdg
 , libstatgrab
 , libsysstat
 , lm_sensors
-, lxmenu-data
 , lxqt-build-tools
 , lxqt-globalkeys
-, gitUpdater
+, lxqt-menu-data
 , menu-cache
 , pcre
 , qtbase
 , qtsvg
 , qttools
-, qtx11extras
+, qtwayland
 , solid
-, xorg
+, wrapQtAppsHook
+, gitUpdater
 }:
 
-mkDerivation rec {
+stdenv.mkDerivation rec {
   pname = "lxqt-panel";
-  version = "1.3.0";
+  version = "2.1.2";
 
   src = fetchFromGitHub {
     owner = "lxqt";
     repo = pname;
     rev = version;
-    sha256 = "tSj7GGIvneYapkyqqgSMJtPGApC1fdpiId2XgQF5xf0=";
+    hash = "sha256-090zBmRUFac9Tt10l20Vxvn234Br5YPpdLR6+KreEFM=";
   };
 
   nativeBuildInputs = [
     cmake
     pkg-config
     lxqt-build-tools
+    qttools
+    wrapQtAppsHook
   ];
 
   buildInputs = [
     alsa-lib
+    libdbusmenu-lxqt
     kguiaddons
     kwindowsystem
+    layer-shell-qt
     libXdamage
+    libXdmcp
+    libXtst
     libdbusmenu
     liblxqt
+    libpthreadstubs
     libpulseaudio
     libqtxdg
     libstatgrab
     libsysstat
     lm_sensors
-    lxmenu-data
     lxqt-globalkeys
+    lxqt-menu-data
     menu-cache
     pcre
     qtbase
     qtsvg
-    qttools
-    qtx11extras
+    qtwayland
     solid
-    xorg.libXdmcp
-    xorg.libXtst
-    xorg.libpthreadstubs
   ];
 
   passthru.updateScript = gitUpdater { };
 
   meta = with lib; {
     homepage = "https://github.com/lxqt/lxqt-panel";
-    description = "The LXQt desktop panel";
+    description = "LXQt desktop panel";
+    mainProgram = "lxqt-panel";
     license = licenses.lgpl21Plus;
     platforms = platforms.linux;
     maintainers = teams.lxqt.members;

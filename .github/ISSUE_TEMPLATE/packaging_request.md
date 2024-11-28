@@ -7,13 +7,24 @@ assignees: ''
 
 ---
 
-**Project description**
+## Project description
 
 <!-- Describe the project a little: -->
 
-**Metadata**
+## Metadata
 
 * homepage URL:
 * source URL:
 * license: mit, bsd, gpl2+ , ...
 * platforms: unix, linux, darwin, ...
+
+---
+
+Note for maintainers: Please tag this issue in your PR.
+
+---
+
+Add a :+1: [reaction] to [issues you find important].
+
+[reaction]: https://github.blog/2016-03-10-add-reactions-to-pull-requests-issues-and-comments/
+[issues you find important]: https://github.com/NixOS/nixpkgs/issues?q=is%3Aissue+is%3Aopen+sort%3Areactions-%2B1-desc

@@ -1,69 +1,78 @@
-{ lib
-, anyio
-, asyncclick
-, buildPythonPackage
-, fetchFromGitHub
-, kasa-crypt
-, orjson
-, poetry-core
-, pydantic
-, pytest-asyncio
-, pytest-mock
-, pytestCheckHook
-, pythonOlder
-, voluptuous
+{
+  lib,
+  aiohttp,
+  async-timeout,
+  asyncclick,
+  buildPythonPackage,
+  cryptography,
+  fetchFromGitHub,
+  hatchling,
+  kasa-crypt,
+  orjson,
+  ptpython,
+  pydantic,
+  pytest-asyncio,
+  pytest-freezer,
+  pytest-mock,
+  pytest-socket,
+  pytestCheckHook,
+  pythonOlder,
+  rich,
+  voluptuous,
 }:
 
 buildPythonPackage rec {
   pname = "python-kasa";
-  version = "0.5.2";
-  format = "pyproject";
+  version = "0.7.7";
+  pyproject = true;
 
-  disabled = pythonOlder "3.8";
+  disabled = pythonOlder "3.9";
 
   src = fetchFromGitHub {
-    owner = pname;
-    repo = pname;
+    owner = "python-kasa";
+    repo = "python-kasa";
     rev = "refs/tags/${version}";
-    hash = "sha256-+ezs8mj3TRmeIhKPxyov9BPdNkhj0ri4FgoZdW7O8tA=";
+    hash = "sha256-405FrKG1jZNrxTmz/K8vqwPhiOqrxURWVCpyFQRJeXc=";
   };
 
-  nativeBuildInputs = [
-    poetry-core
-  ];
+  build-system = [ hatchling ];
 
-  propagatedBuildInputs = [
-    anyio
+  dependencies = [
+    aiohttp
+    async-timeout
     asyncclick
+    cryptography
     pydantic
   ];
 
   nativeCheckInputs = [
     pytest-asyncio
+    pytest-freezer
     pytest-mock
+    pytest-socket
     pytestCheckHook
     voluptuous
   ];
 
-  passthru.optional-dependencies = {
-    speedup = [
+  optional-dependencies = {
+    shell = [
+      ptpython
+      rich
+    ];
+    speedups = [
       kasa-crypt
       orjson
     ];
   };
 
-  pytestFlagsArray = [
-    "--asyncio-mode=auto"
-  ];
+  pytestFlagsArray = [ "--asyncio-mode=auto" ];
 
   disabledTestPaths = [
     # Skip the examples tests
     "kasa/tests/test_readme_examples.py"
   ];
 
-  pythonImportsCheck = [
-    "kasa"
-  ];
+  pythonImportsCheck = [ "kasa" ];
 
   meta = with lib; {
     description = "Python API for TP-Link Kasa Smarthome products";
@@ -71,5 +80,6 @@ buildPythonPackage rec {
     changelog = "https://github.com/python-kasa/python-kasa/blob/${version}/CHANGELOG.md";
     license = licenses.gpl3Plus;
     maintainers = with maintainers; [ fab ];
+    mainProgram = "kasa";
   };
 }

@@ -1,29 +1,19 @@
-{ lib, stdenv, fetchFromGitHub, postgresql }:
+{ lib, stdenv, fetchFromGitHub, postgresql, buildPostgresqlExtension }:
 
-stdenv.mkDerivation rec {
+buildPostgresqlExtension rec {
   pname = "temporal_tables";
-  version = "unstable-2021-02-20";
-
-  buildInputs = [ postgresql ];
+  version = "1.2.2";
 
   src = fetchFromGitHub {
     owner  = "arkhipov";
-    repo   = pname;
-    rev    = "3ce22da51f2549e8f8b8fbf2850c63eb3a2f1fbb";
-    sha256 = "sha256-kmcl6vVHRZj2G5GijEyaZgDpZBDcdIUKzXv0rYYqUu4=";
+    repo   = "temporal_tables";
+    rev    = "v${version}";
+    sha256 = "sha256-7+DCSPAPhsokWDq/5IXNhd7jY6FfzxxUjlsg/VJeD3k=";
   };
 
-  installPhase = ''
-    mkdir -p $out/{lib,share/postgresql/extension}
-
-    cp *.so      $out/lib
-    cp *.sql     $out/share/postgresql/extension
-    cp *.control $out/share/postgresql/extension
-  '';
-
   meta = with lib; {
-    description = "Temporal Tables PostgreSQL Extension ";
-    homepage    = "https://github.com/mlt/temporal_tables";
+    description = "Temporal Tables PostgreSQL Extension";
+    homepage    = "https://github.com/arkhipov/temporal_tables";
     maintainers = with maintainers; [ ggpeti ];
     platforms   = postgresql.meta.platforms;
     license     = licenses.bsd2;

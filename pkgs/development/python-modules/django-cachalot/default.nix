@@ -1,23 +1,25 @@
-{ lib
-, buildPythonPackage
-, fetchFromGitHub
-, django
-, django-debug-toolbar
-, psycopg2
-, beautifulsoup4
-, python
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  django,
+  django-debug-toolbar,
+  psycopg2,
+  beautifulsoup4,
+  python,
+  pytz,
 }:
 
 buildPythonPackage rec {
   pname = "django-cachalot";
-  version = "2.5.3";
+  version = "2.7.0";
   format = "setuptools";
 
   src = fetchFromGitHub {
     owner = "noripyt";
     repo = "django-cachalot";
-    rev = "v${version}";
-    hash = "sha256-ayAN+PgK3aIpt4R8aeC6c6mRGTnfObycmkoXPTjx4WI=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-Fi5UvqH2bVb4v/GWDkEYIcBMBVos+35g4kcEnZTOQvw=";
   };
 
   patches = [
@@ -26,14 +28,13 @@ buildPythonPackage rec {
     ./disable-unsupported-tests.patch
   ];
 
-  propagatedBuildInputs = [
-    django
-  ];
+  propagatedBuildInputs = [ django ];
 
   checkInputs = [
     beautifulsoup4
     django-debug-toolbar
     psycopg2
+    pytz
   ];
 
   pythonImportsCheck = [ "cachalot" ];

@@ -1,24 +1,26 @@
-{ lib
-, buildPythonPackage
-, pythonOlder
-, fetchPypi
-# build inputs
-, typing-extensions
-, typing-inspect
+{
+  lib,
+  buildPythonPackage,
+  pythonOlder,
+  fetchPypi,
+  # build inputs
+  typing-extensions,
+  typing-inspect,
 }:
 let
   pname = "pyre-extensions";
-  version = "0.0.30";
+  version = "0.0.31";
 in
 buildPythonPackage {
   inherit pname version;
   format = "setuptools";
 
-  disable = pythonOlder "3.7";
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
-    inherit pname version;
-    hash = "sha256-unkjxIbgia+zehBiOo9K6C1zz/QkJtcRxIrwcOW8MbI=";
+    inherit version;
+    pname = "pyre_extensions";  # changed pname on 0.0.31?
+    hash = "sha256-lFgG3TMCeFbPbkHJxK2s/6srVpk/h2L/TqeCb5XbBIE=";
   };
 
   propagatedBuildInputs = [

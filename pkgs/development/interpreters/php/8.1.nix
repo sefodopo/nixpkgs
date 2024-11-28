@@ -1,11 +1,10 @@
-{ callPackage, ... }@_args:
+{ callPackage, fetchpatch, ... }@_args:
 
 let
-  base = callPackage ./generic.nix (_args // {
-    version = "8.1.21";
-    hash = "sha256-bqSegzXWMhd/VrUHFgqhUcewIBhXianBSFn85dSgd20=";
+  base = callPackage ./generic.nix ((removeAttrs _args [ "fetchpatch" ]) // {
+    version = "8.1.31";
+    hash = "sha256-CzmCizRRUcrxt5XZ9LkjyYhyMXdsMwdt/J2QpEOQ0Nw=";
   });
-
 in
 base.withExtensions ({ all, ... }: with all; ([
   bcmath

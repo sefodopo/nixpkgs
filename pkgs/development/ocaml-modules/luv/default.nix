@@ -6,13 +6,20 @@
 
 buildDunePackage rec {
   pname = "luv";
-  version = "0.5.11";
-  useDune2 = true;
+  version = "0.5.12";
+
+  minimalOCamlVersion = "4.03";
 
   src = fetchurl {
     url = "https://github.com/aantron/luv/releases/download/${version}/luv-${version}.tar.gz";
-    sha256 = "sha256-zOz0cxGzhLi3Q36qyStNCz8JGXHtECQfZysMKiyKOkM=";
+    sha256 = "sha256-dp9qCIYqSdROIAQ+Jw73F3vMe7hnkDe8BgZWImNMVsA=";
   };
+
+  patches = [
+    # backport of patch to fix incompatible pointer type. remove next update
+    # https://github.com/aantron/luv/commit/ad7f953fccb8732fe4eb9018556e8d4f82abf8f2
+    ./incompatible-pointer-type-fix.diff
+  ];
 
   postConfigure = ''
     for f in src/c/vendor/configure/{ltmain.sh,configure}; do
@@ -23,6 +30,7 @@ buildDunePackage rec {
   nativeBuildInputs = [ file ];
   propagatedBuildInputs = [ ctypes result ];
   checkInputs = [ alcotest ];
+  # Alcotest depends on fmt that needs 4.08 or newer
   doCheck = lib.versionAtLeast ocaml.version "4.08";
 
   meta = with lib; {

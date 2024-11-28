@@ -1,15 +1,15 @@
-{ lib, fetchurl, fetchpatch, stdenv, zlib, ncurses, libiconv }:
+{ lib, fetchurl, stdenv, zlib, ncurses, libiconv, apple-sdk_11, darwinMinVersionHook }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "fnc";
-  version = "0.15";
+  version = "0.18";
 
   src = fetchurl {
-    url = "https://fnc.bsdbox.org/tarball/${version}/fnc-${version}.tar.gz";
-    sha256 = "sha256-8up844ekIOMcPlfB2DJzR/GgJY9s/sBeYpG+YtdauvU=";
+    url = "https://fnc.bsdbox.org/tarball/${finalAttrs.version}/fnc-${finalAttrs.version}.tar.gz";
+    hash = "sha256-npS+sOxF0S/9TuFjtEFlev0HpIOsaP6zmcfopPNUehk=";
   };
 
-  buildInputs = [ libiconv ncurses zlib ];
+  buildInputs = [ libiconv ncurses zlib apple-sdk_11 (darwinMinVersionHook "11.0") ];
 
   makeFlags = [ "PREFIX=$(out)" ];
 
@@ -33,5 +33,6 @@ stdenv.mkDerivation rec {
     license = licenses.isc;
     platforms = platforms.all;
     maintainers = with maintainers; [ abbe ];
+    mainProgram = "fnc";
   };
-}
+})

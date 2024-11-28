@@ -1,28 +1,34 @@
 { stdenv
 , lib
 , fetchFromGitHub
+, fetchYarnDeps
 , makeWrapper
+, nix-update-script
+, prefetch-yarn-deps
+, fixup-yarn-lock
 , nodejs
 , yarn
-, yarn2nix-moretea
 , nixosTests
 }:
 
 stdenv.mkDerivation rec {
   pname = "outline";
-  version = "0.70.2";
+  version = "0.81.0";
 
   src = fetchFromGitHub {
     owner = "outline";
     repo = "outline";
     rev = "v${version}";
-    hash = "sha256-y2VGWuwJX91Aa8Bs7YcT4MKOURrFKXUz9CcQkUI/U2s=";
+    hash = "sha256-PgRdIdk0VJHFa+rNRV4mlZ0A/jHmAg0O9td98y1itzw=";
   };
 
-  nativeBuildInputs = [ makeWrapper yarn2nix-moretea.fixup_yarn_lock ];
+  nativeBuildInputs = [ makeWrapper prefetch-yarn-deps fixup-yarn-lock ];
   buildInputs = [ yarn nodejs ];
 
-  yarnOfflineCache = yarn2nix-moretea.importOfflineCache ./yarn.nix;
+  yarnOfflineCache = fetchYarnDeps {
+    yarnLock = "${src}/yarn.lock";
+    hash = "sha256-j0mA+2GQZNxQoEi8qwmipUXGjPL4/bY5GHAT0o92Ob0=";
+  };
 
   configurePhase = ''
     export HOME=$(mktemp -d)/yarn_home
@@ -33,7 +39,7 @@ stdenv.mkDerivation rec {
     export NODE_OPTIONS=--openssl-legacy-provider
 
     yarn config --offline set yarn-offline-mirror $yarnOfflineCache
-    fixup_yarn_lock yarn.lock
+    fixup-yarn-lock yarn.lock
 
     yarn install --offline \
       --frozen-lockfile \
@@ -59,21 +65,27 @@ stdenv.mkDerivation rec {
     makeWrapper ${nodejs}/bin/node $out/bin/outline-server \
       --add-flags $build/server/index.js \
       --set NODE_ENV production \
-      --set NODE_PATH $node_modules
+      --set NODE_PATH $node_modules \
+      --prefix PATH : ${lib.makeBinPath [ nodejs ]} # required to run migrations
 
     runHook postInstall
   '';
 
-  passthru.tests = {
-    basic-functionality = nixosTests.outline;
+  passthru = {
+    tests = {
+      basic-functionality = nixosTests.outline;
+    };
+    updateScript = nix-update-script { };
+    # alias for nix-update to be able to find and update this attribute
+    offlineCache = yarnOfflineCache;
   };
 
   meta = with lib; {
-    description = "The fastest wiki and knowledge base for growing teams. Beautiful, feature rich, and markdown compatible";
+    description = "Fastest wiki and knowledge base for growing teams. Beautiful, feature rich, and markdown compatible";
     homepage = "https://www.getoutline.com/";
     changelog = "https://github.com/outline/outline/releases";
     license = licenses.bsl11;
-    maintainers = with maintainers; [ cab404 yrd xanderio ];
+    maintainers = with maintainers; [ cab404 yrd ] ++ teams.cyberus.members;
     platforms = platforms.linux;
   };
 }

@@ -3,7 +3,6 @@
 , fetchFromGitHub
 , mkDerivation
 , qtbase
-, qtquick1
 , qmltermwidget
 , qtquickcontrols2
 , qtgraphicaleffects
@@ -28,7 +27,6 @@ mkDerivation rec {
 
   buildInputs = [
     qtbase
-    qtquick1
     qmltermwidget
     qtquickcontrols2
     qtgraphicaleffects
@@ -42,7 +40,7 @@ mkDerivation rec {
     mv $out/usr/share $out/share
     mv $out/usr/bin $out/bin
     rmdir $out/usr
-  '' + lib.optionalString stdenv.isDarwin ''
+  '' + lib.optionalString stdenv.hostPlatform.isDarwin ''
     ln -s $out/bin/cool-retro-term.app/Contents/MacOS/cool-retro-term $out/bin/cool-retro-term
   '';
 
@@ -58,6 +56,7 @@ mkDerivation rec {
     homepage = "https://github.com/Swordfish90/cool-retro-term";
     license = lib.licenses.gpl3Plus;
     platforms = with lib.platforms; linux ++ darwin;
-    maintainers = with lib.maintainers; [ skeidel ];
+    maintainers = [ ];
+    mainProgram = "cool-retro-term";
   };
 }

@@ -2,22 +2,21 @@
 , stdenv
 , fetchFromGitHub
 , qtsvg
-, qtwayland
 , qttools
 , exiv2
 , wrapQtAppsHook
 , cmake
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "pineapple-pictures";
-  version = "0.7.1";
+  version = "0.8.2.1";
 
   src = fetchFromGitHub {
     owner = "BLumia";
     repo = "pineapple-pictures";
-    rev = version;
-    hash = "sha256-6peNZc+rrQrUFSrn1AK8lZsy4RQf9DwpmXY0McfEus8=";
+    rev = finalAttrs.version;
+    hash = "sha256-24VDmB0eR8h0JGqpsdN0HkRRIHLw9DIT2sM4rCvPwhE=";
   };
 
   nativeBuildInputs = [
@@ -28,7 +27,6 @@ stdenv.mkDerivation rec {
 
   buildInputs = [
     qtsvg
-    qtwayland
     exiv2
   ];
 
@@ -36,12 +34,12 @@ stdenv.mkDerivation rec {
     "-DPREFER_QT_5=OFF"
   ];
 
-  meta = with lib; {
+  meta = {
     description = "Homebrew lightweight image viewer";
     homepage = "https://github.com/BLumia/pineapple-pictures";
-    license = licenses.mit;
-    platforms = platforms.linux;
+    license = lib.licenses.mit;
+    platforms = lib.platforms.linux;
     mainProgram = "ppic";
-    maintainers = with maintainers; [ rewine ];
+    maintainers = with lib.maintainers; [ rewine ];
   };
-}
+})

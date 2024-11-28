@@ -1,33 +1,35 @@
-{ lib
-, aiohttp
-, buildPythonPackage
-, fetchPypi
-, pythonOlder
+{
+  lib,
+  aiohttp,
+  buildPythonPackage,
+  fetchPypi,
+  pythonOlder,
+  setuptools,
 }:
 
 buildPythonPackage rec {
   pname = "pynina";
-  version = "0.3.1";
-  format = "setuptools";
+  version = "0.3.4";
+  pyproject = true;
 
   disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     pname = "PyNINA";
     inherit version;
-    hash = "sha256-HyOk3W95dEl+p8YGh3xP29HcvbncqxsUaWSQUiKgTWM=";
+    hash = "sha256-/BeT05dHPHfqybsly0QUbBPFFJKEr67vG1xbBfZXQuY=";
   };
 
-  propagatedBuildInputs = [
-    aiohttp
-  ];
+  pythonRelaxDeps = [ "aiohttp" ];
+
+  build-system = [ setuptools ];
+
+  dependencies = [ aiohttp ];
 
   # Project has no tests
   doCheck = false;
 
-  pythonImportsCheck = [
-    "pynina"
-  ];
+  pythonImportsCheck = [ "pynina" ];
 
   meta = with lib; {
     description = "Python API wrapper to retrieve warnings from the german NINA app";

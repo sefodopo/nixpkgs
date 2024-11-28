@@ -1,7 +1,7 @@
-{ lib, beamPackages, makeWrapper, rebar3, elixir, erlang, fetchFromGitHub }:
+{ lib, beamPackages, makeWrapper, rebar3, elixir, erlang, fetchFromGitHub, nixosTests }:
 beamPackages.mixRelease rec {
   pname = "livebook";
-  version = "0.10.0";
+  version = "0.14.4";
 
   inherit elixir;
 
@@ -13,30 +13,30 @@ beamPackages.mixRelease rec {
     owner = "livebook-dev";
     repo = "livebook";
     rev = "v${version}";
-    hash = "sha256-Bp1CEvVv5DPDDikRPubsG6p4LLiHXTEXE+ZIip3LsGA=";
+    hash = "sha256-XpBJlPLr7E3OqTnLxnSmKCgDyiU1hT8WfOhWeRGYROA=";
   };
 
   mixFodDeps = beamPackages.fetchMixDeps {
     pname = "mix-deps-${pname}";
     inherit src version;
-    hash = "sha256-qFLCWr7LzI9WNgj0AJO3Tw7rrA1JhBOEpX79RMjv2nk=";
+    hash = "sha256-jB6IOBX3LwdrEtaWY3gglo1HO2OhdiK8j3BgzfZ1nAU=";
   };
 
-  installPhase = ''
-    mix escript.build
-    mkdir -p $out/bin
-    mv ./livebook $out/bin
-
+  postInstall = ''
     wrapProgram $out/bin/livebook \
-      --prefix PATH : ${lib.makeBinPath [ elixir ]} \
+      --prefix PATH : ${lib.makeBinPath [ elixir erlang ]} \
       --set MIX_REBAR3 ${rebar3}/bin/rebar3
-  '';
+    '';
+
+  passthru.tests = {
+    livebook-service = nixosTests.livebook-service;
+  };
 
   meta = with lib; {
     license = licenses.asl20;
     homepage = "https://livebook.dev/";
     description = "Automate code & data workflows with interactive Elixir notebooks";
-    maintainers = with maintainers; [ munksgaard ];
+    maintainers = with maintainers; [ munksgaard scvalex ];
     platforms = platforms.unix;
   };
 }

@@ -1,29 +1,27 @@
-{ lib, stdenv, fetchFromGitHub, postgresql }:
+{ lib, stdenv, fetchFromGitHub, postgresql, postgresqlTestExtension, buildPostgresqlExtension }:
 
-stdenv.mkDerivation rec {
-  pname = "plpgsql_check";
-  version = "2.3.4";
+buildPostgresqlExtension (finalAttrs: {
+  pname = "plpgsql-check";
+  version = "2.7.12";
 
   src = fetchFromGitHub {
     owner = "okbob";
-    repo = pname;
-    rev = "v${version}";
-    hash = "sha256-kXci/4o7rK1CiLp8alkAGMhxjiQBIPpavS/1/7BBWI8=";
+    repo = "plpgsql_check";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-sLakN4595z+Smt7oaK7IPIJZp/JIGwL5UB4OXQek7JU=";
   };
 
-  buildInputs = [ postgresql ];
-
-  installPhase = ''
-    install -D -t $out/lib *.so
-    install -D -t $out/share/postgresql/extension *.sql
-    install -D -t $out/share/postgresql/extension *.control
-  '';
+  passthru.tests.extension = postgresqlTestExtension {
+    inherit (finalAttrs) finalPackage;
+    sql = "CREATE EXTENSION plpgsql_check;";
+  };
 
   meta = with lib; {
     description = "Linter tool for language PL/pgSQL";
     homepage = "https://github.com/okbob/plpgsql_check";
+    changelog = "https://github.com/okbob/plpgsql_check/releases/tag/v${finalAttrs.version}";
     platforms = postgresql.meta.platforms;
     license = licenses.mit;
-    maintainers = [ maintainers.marsam ];
+    maintainers = [ ];
   };
-}
+})

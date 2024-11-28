@@ -1,28 +1,28 @@
-{ lib
-, buildPythonPackage
-, fetchFromGitHub
-, setuptools
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  setuptools,
 }:
 
 buildPythonPackage {
   pname = "std2";
-  version = "unstable-2023-07-09";
-
-  format = "pyproject";
+  version = "0-unstable-2024-09-02";
+  pyproject = true;
 
   src = fetchFromGitHub {
     owner = "ms-jpq";
     repo = "std2";
-    rev = "2d5594b40585ecae60ce5175bee68cc8b3085ee6";
-    hash = "sha256-phGIWow7PGOtS1Pre1Gz0Xg6izGp6BiUTmze5jI/BwY=";
+    rev = "205d1f52e9b5438ef2b732c77e1144847cafa8d0";
+    hash = "sha256-WdUefadEk92cGnDI+KbQBpjg+d7KgI6bjlQlyhRRRFA=";
   };
 
   nativeBuildInputs = [ setuptools ];
 
-  meta = with lib; {
+  meta = {
     homepage = "https://github.com/ms-jpq/std2";
     description = "Dependency to chadtree and coq_nvim plugins";
-    license = licenses.gpl3Plus;
-    maintainers = with maintainers; [ GaetanLepage ];
+    license = lib.licenses.gpl3Plus;
+    maintainers = with lib.maintainers; [ GaetanLepage ];
   };
 }

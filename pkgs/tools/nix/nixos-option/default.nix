@@ -1,18 +1,40 @@
-{ lib, stdenv, boost, cmake, pkg-config, nix }:
+{
+  lib,
+  stdenv,
+  boost,
+  meson,
+  ninja,
+  pkg-config,
+  installShellFiles,
+  nix,
+}:
 
 stdenv.mkDerivation {
   name = "nixos-option";
 
   src = ./.;
 
+  postInstall = ''
+    installManPage ../nixos-option.8
+  '';
+
   strictDeps = true;
-  nativeBuildInputs = [ cmake pkg-config ];
-  buildInputs = [ boost nix ];
-  cmakeFlags = [ "-DNIX_DEV_INCLUDEPATH=${nix.dev}/include/nix" ];
+
+  nativeBuildInputs = [
+    meson
+    ninja
+    pkg-config
+    installShellFiles
+  ];
+  buildInputs = [
+    boost
+    nix
+  ];
 
   meta = with lib; {
     license = licenses.lgpl2Plus;
-    maintainers = with maintainers; [ ];
+    mainProgram = "nixos-option";
+    maintainers = [ ];
     inherit (nix.meta) platforms;
   };
 }

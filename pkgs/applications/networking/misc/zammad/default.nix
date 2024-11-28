@@ -6,7 +6,6 @@
 , bundlerEnv
 , defaultGemConfig
 , callPackage
-, writeText
 , procps
 , ruby
 , postgresql
@@ -14,42 +13,29 @@
 , jq
 , moreutils
 , nodejs
-, yarn
-, yarn2nix-moretea
-, v8
+, pnpm
 , cacert
+, redis
+, dataDir ? "/var/lib/zammad"
 }:
 
 let
   pname = "zammad";
-  version = "5.4.1";
+  version = "6.4.0";
 
   src = applyPatches {
-
     src = fetchFromGitHub (lib.importJSON ./source.json);
-
     patches = [
-      ./0001-nulldb.patch
       ./fix-sendmail-location.diff
     ];
 
     postPatch = ''
-      sed -i -e "s|ruby '3.1.[0-9]\+'|ruby '${ruby.version}'|" Gemfile
-      sed -i -e "s|ruby 3.1.[0-9]\+p[0-9]\+|ruby ${ruby.version}|" Gemfile.lock
-      sed -i -e "s|3.1.[0-9]\+|${ruby.version}|" .ruby-version
+      sed -i -e "s|ruby '3.2.[0-9]\+'|ruby '${ruby.version}'|" Gemfile
+      sed -i -e "s|ruby 3.2.[0-9]\+p[0-9]\+|ruby ${ruby.version}|" Gemfile.lock
+      sed -i -e "s|3.2.[0-9]\+|${ruby.version}|" .ruby-version
       ${jq}/bin/jq '. += {name: "Zammad", version: "${version}"}' package.json | ${moreutils}/bin/sponge package.json
     '';
   };
-
-  databaseConfig = writeText "database.yml" ''
-    production:
-      url: <%= ENV['DATABASE_URL'] %>
-  '';
-
-  secretsConfig = writeText "secrets.yml" ''
-    production:
-      secret_key_base: <%= ENV['SECRET_KEY_BASE'] %>
-  '';
 
   rubyEnv = bundlerEnv {
     name = "${pname}-gems-${version}";
@@ -64,7 +50,6 @@ let
     groups = [
       "assets"
       "unicorn" # server
-      "nulldb"
       "test"
       "mysql"
       "puma"
@@ -73,7 +58,7 @@ let
     ];
     gemConfig = defaultGemConfig // {
       pg = attrs: {
-        buildFlags = [ "--with-pg-config=${postgresql}/bin/pg_config" ];
+        buildFlags = [ "--with-pg-config=${lib.getDev postgresql}/bin/pg_config" ];
       };
       rszr = attrs: {
         buildInputs = [ imlib2 imlib2.dev ];
@@ -81,7 +66,7 @@ let
       };
       mini_racer = attrs: {
         buildFlags = [
-          "--with-v8-dir=\"${v8}\""
+          "--with-v8-dir=\"${nodejs.libv8}\""
         ];
         dontBuild = false;
         postPatch = ''
@@ -92,20 +77,6 @@ let
     };
   };
 
-  yarnEnv = yarn2nix-moretea.mkYarnPackage {
-    pname = "${pname}-node-modules";
-    inherit version src;
-    yarnLock = ./yarn.lock;
-    yarnNix = ./yarn.nix;
-    packageJSON = ./package.json;
-
-    yarnPreBuild = ''
-      mkdir -p deps/Zammad
-      cp -r ${src}/.eslint-plugin-zammad deps/Zammad/.eslint-plugin-zammad
-      chmod -R +w deps/Zammad/.eslint-plugin-zammad
-    '';
-  };
-
 in
 stdenv.mkDerivation {
   inherit pname version src;
@@ -114,39 +85,66 @@ stdenv.mkDerivation {
     rubyEnv
     rubyEnv.wrappedRuby
     rubyEnv.bundler
-    yarn
+  ];
+
+  nativeBuildInputs = [
+    redis
+    postgresql
+    pnpm.configHook
     nodejs
     procps
     cacert
   ];
 
-  RAILS_ENV = "production";
+  env.RAILS_ENV = "production";
+
+  pnpmDeps = pnpm.fetchDeps {
+    inherit pname src;
+
+    hash = "sha256-bdm1nkJnXE7oZZhG2uBnk3fYhITaMROHGKPbf0G3bFs=";
+  };
 
   buildPhase = ''
-    node_modules=${yarnEnv}/libexec/Zammad/node_modules
-    ${yarn2nix-moretea.linkNodeModulesHook}
+    mkdir redis-work
+    pushd redis-work
+    redis-server &
+    REDIS_PID=$!
+    popd
 
-    rake DATABASE_URL="nulldb://user:pass@127.0.0.1/dbname" assets:precompile
+    mkdir postgres-work
+    initdb -D postgres-work --encoding=utf8
+    pg_ctl start -D postgres-work -o "-k $PWD/postgres-work -h '''"
+    createuser -h $PWD/postgres-work zammad -R -S
+    createdb -h $PWD/postgres-work --encoding=utf8 --owner=zammad zammad
+
+    rake DATABASE_URL="postgresql:///zammad?host=$PWD/postgres-work" assets:precompile
+
+    kill $REDIS_PID
+    pg_ctl stop -D postgres-work -m immediate
+    rm -r redis-work postgres-work
   '';
 
   installPhase = ''
     cp -R . $out
-    cp ${databaseConfig} $out/config/database.yml
-    cp ${secretsConfig} $out/config/secrets.yml
-    sed -i -e "s|info|debug|" $out/config/environments/production.rb
+    rm -rf $out/config/database.yml $out/config/secrets.yml $out/tmp $out/log
+    # dataDir will be set in the module, and the package gets overriden there
+    ln -s ${dataDir}/config/database.yml $out/config/database.yml
+    ln -s ${dataDir}/config/secrets.yml $out/config/secrets.yml
+    ln -s ${dataDir}/tmp $out/tmp
+    ln -s ${dataDir}/log $out/log
   '';
 
   passthru = {
-    inherit rubyEnv yarnEnv;
+    inherit rubyEnv;
     updateScript = [ "${callPackage ./update.nix {}}/bin/update.sh" pname (toString ./.) ];
     tests = { inherit (nixosTests) zammad; };
   };
 
   meta = with lib; {
-    description = "Zammad, a web-based, open source user support/ticketing solution.";
+    description = "Zammad, a web-based, open source user support/ticketing solution";
     homepage = "https://zammad.org";
     license = licenses.agpl3Plus;
     platforms = [ "x86_64-linux" "aarch64-linux" ];
-    maintainers = with maintainers; [ n0emis garbas taeer ];
+    maintainers = with maintainers; [ n0emis taeer netali ];
   };
 }

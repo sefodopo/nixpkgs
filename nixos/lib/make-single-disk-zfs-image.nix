@@ -21,6 +21,9 @@
 , # size of the FAT partition, in megabytes.
   bootSize ? 1024
 
+  , # memory allocated for virtualized build instance
+  memSize ? 1024
+
 , # The size of the root partition, in megabytes.
   rootSize ? 2048
 
@@ -109,7 +112,7 @@ let
 
   tools = lib.makeBinPath (
     with pkgs; [
-      config.system.build.nixos-enter
+      nixos-enter
       config.system.build.nixos-install
       dosfstools
       e2fsprogs
@@ -223,14 +226,13 @@ let
   image = (
     pkgs.vmTools.override {
       rootModules =
-        [ "zfs" "9p" "9pnet_virtio" "virtio_pci" "virtio_blk" ] ++
-        (pkgs.lib.optional pkgs.stdenv.hostPlatform.isx86 "rtc_cmos");
+        [ "zfs" "9p" "9pnet_virtio" "virtio_pci" "virtio_blk" ];
       kernel = modulesTree;
     }
   ).runInLinuxVM (
     pkgs.runCommand name
       {
-        memSize = 1024;
+        inherit memSize;
         QEMU_OPTS = "-drive file=$rootDiskImage,if=virtio,cache=unsafe,werror=report";
         preVM = ''
           PATH=$PATH:${pkgs.qemu_kvm}/bin

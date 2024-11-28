@@ -10,14 +10,13 @@
 
 buildDunePackage rec {
   pname = "uring";
-  version = "0.6";
+  version = "0.9";
 
   minimalOCamlVersion = "4.12";
-  duneVersion = "3";
 
   src = fetchurl {
     url = "https://github.com/ocaml-multicore/ocaml-${pname}/releases/download/v${version}/${pname}-${version}.tbz";
-    sha256 = "ZltD9JnF1lJs0xjWwFXBfWMP8e5XRhCaB2P4iqHFreo=";
+    hash = "sha256-eXWIxfL9UsKKf4sanBjKfr6Od4fPDctVnkU+wjIXW0M=";
   };
 
   propagatedBuildInputs = [
@@ -38,7 +37,9 @@ buildDunePackage rec {
     mdx.bin
   ];
 
-  doCheck = true;
+  # Tests use io_uring, which is blocked by Lix's sandbox because it's
+  # opaque to seccomp.
+  doCheck = false;
 
   dontStrip = true;
 

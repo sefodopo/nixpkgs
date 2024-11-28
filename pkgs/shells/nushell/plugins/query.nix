@@ -1,36 +1,51 @@
-{ stdenv
-, lib
-, rustPlatform
-, nushell
-, IOKit
-, CoreFoundation
-, nix-update-script
+{
+  stdenv,
+  lib,
+  rustPlatform,
+  nushell,
+  IOKit,
+  CoreFoundation,
+  nix-update-script,
+  pkg-config,
+  openssl,
+  curl,
 }:
 
-rustPlatform.buildRustPackage {
+rustPlatform.buildRustPackage rec {
   pname = "nushell_plugin_query";
-  version = "0.83.0";
+  inherit (nushell) version src;
+  cargoHash = "sha256-xztQzfe/ZjG3YvQMDN3ADtWIcjUr3thPxbPjOKKvB9Q=";
 
-  src = nushell.src;
-
-  cargoHash = "sha256-h8T3QimN3vyzJEZr63gM5egwjSWI3m3QH2Yp0rwXd90=";
-
-  buildInputs = lib.optionals stdenv.isDarwin [ IOKit CoreFoundation ];
-
+  nativeBuildInputs = [ pkg-config ] ++ lib.optionals stdenv.cc.isClang [ rustPlatform.bindgenHook ];
+  buildInputs =
+    [
+      openssl
+      curl
+    ]
+    ++ lib.optionals stdenv.hostPlatform.isDarwin [
+      IOKit
+      CoreFoundation
+    ];
   cargoBuildFlags = [ "--package nu_plugin_query" ];
 
-  # compilation fails with a missing symbol
-  doCheck = false;
+  checkPhase = ''
+    cargo test --manifest-path crates/nu_plugin_query/Cargo.toml
+  '';
 
-  passthru = {
-    updateScript = nix-update-script { };
+  passthru.updateScript = nix-update-script {
+    # Skip the version check and only check the hash because we inherit version from nushell.
+    extraArgs = [ "--version=skip" ];
   };
 
-  meta = with lib; {
-    description = "A Nushell plugin to query JSON, XML, and various web data";
-    homepage = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_query";
-    license = licenses.mpl20;
-    maintainers = with maintainers; [ happysalada ];
-    platforms = with platforms; all;
+  meta = {
+    description = "Nushell plugin to query JSON, XML, and various web data";
+    mainProgram = "nu_plugin_query";
+    homepage = "https://github.com/nushell/nushell/tree/${version}/crates/nu_plugin_query";
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [
+      happysalada
+      aidalgol
+    ];
+    platforms = lib.platforms.all;
   };
 }

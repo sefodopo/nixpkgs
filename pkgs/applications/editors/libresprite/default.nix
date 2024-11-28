@@ -13,8 +13,9 @@
 , libjpeg
 , libpng
 , libwebp
+, libarchive
 , pixman
-, tinyxml
+, tinyxml-2
 , zlib
 , SDL2
 , SDL2_image
@@ -26,16 +27,16 @@
 , nixosTests
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "libresprite";
-  version = "1.0";
+  version = "1.1";
 
   src = fetchFromGitHub {
     owner = "LibreSprite";
     repo = "LibreSprite";
-    rev = "v${version}";
+    rev = "v${finalAttrs.version}";
     fetchSubmodules = true;
-    sha256 = "sha256-d8GmVHYomDb74iSeEhJEVTHvbiVXggXg7xSqIKCUSzY=";
+    hash = "sha256-piA/hLQqdfyVH4GPu5ElXZtowQL9AGaK7GhZOME4L0Q=";
   };
 
   nativeBuildInputs = [
@@ -52,14 +53,15 @@ stdenv.mkDerivation rec {
     libjpeg
     libpng
     libwebp
+    libarchive
     pixman
-    tinyxml
+    tinyxml-2
     zlib
     SDL2
     SDL2_image
     lua
     # no v8 due to missing libplatform and libbase
-  ] ++ lib.optionals stdenv.isDarwin [
+  ] ++ lib.optionals stdenv.hostPlatform.isDarwin [
     AppKit
     Cocoa
     Foundation
@@ -70,7 +72,7 @@ stdenv.mkDerivation rec {
     "-DWITH_WEBP_SUPPORT=ON"
   ];
 
-  hardeningDisable = lib.optional stdenv.isDarwin "format";
+  hardeningDisable = lib.optional stdenv.hostPlatform.isDarwin "format";
 
   # Install mime icons. Note that the mimetype is still "x-aseprite"
   postInstall = ''
@@ -85,12 +87,12 @@ stdenv.mkDerivation rec {
     libresprite-can-open-png = nixosTests.libresprite;
   };
 
-  meta = with lib; {
+  meta = {
     homepage = "https://libresprite.github.io/";
     description = "Animated sprite editor & pixel art tool, fork of Aseprite";
-    license = licenses.gpl2Only;
-    longDescription =
-      ''LibreSprite is a program to create animated sprites. Its main features are:
+    license = lib.licenses.gpl2Only;
+    longDescription = ''
+        LibreSprite is a program to create animated sprites. Its main features are:
 
           - Sprites are composed by layers & frames (as separated concepts).
           - Supported color modes: RGBA, Indexed (palettes up to 256 colors), and Grayscale.
@@ -103,9 +105,9 @@ stdenv.mkDerivation rec {
           - Pixel-art specific tools like filled Contour, Polygon, Shading mode, etc.
           - Onion skinning.
       '';
-    maintainers = with maintainers; [ fgaz ];
-    platforms = platforms.all;
+    maintainers = with lib.maintainers; [ fgaz ];
+    platforms = lib.platforms.all;
     # https://github.com/LibreSprite/LibreSprite/issues/308
-    broken = stdenv.isDarwin;
+    broken = stdenv.hostPlatform.isDarwin;
   };
-}
+})

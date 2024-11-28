@@ -1,115 +1,140 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, pythonOlder
-, setuptools
-, versioningit
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
 
-  # mandatory
-, broadbean
-, h5netcdf
-, h5py
-, importlib-metadata
-, ipywidgets
-, ipykernel
-, jsonschema
-, matplotlib
-, numpy
-, opencensus
-, opencensus-ext-azure
-, packaging
-, pandas
-, pyvisa
-, ruamel-yaml
-, tabulate
-, typing-extensions
-, tqdm
-, uncertainties
-, websockets
-, wrapt
-, xarray
-, ipython
-, pillow
-, rsa
+  # build-system
+  setuptools,
+  versioningit,
 
-  # optional
-, qcodes-loop
-, slack-sdk
+  # dependencies
+  broadbean,
+  cf-xarray,
+  dask,
+  h5netcdf,
+  h5py,
+  ipykernel,
+  ipython,
+  ipywidgets,
+  jsonschema,
+  libcst,
+  matplotlib,
+  numpy,
+  opentelemetry-api,
+  packaging,
+  pandas,
+  pillow,
+  pyarrow,
+  pyvisa,
+  ruamel-yaml,
+  tabulate,
+  tqdm,
+  typing-extensions,
+  uncertainties,
+  websockets,
+  wrapt,
+  xarray,
 
-  # test
-, pytestCheckHook
-, deepdiff
-, hypothesis
-, lxml
-, pytest-asyncio
-, pytest-mock
-, pytest-rerunfailures
-, pytest-xdist
-, pyvisa-sim
-, sphinx
+  # optional-dependencies
+  furo,
+  jinja2,
+  nbsphinx,
+  pyvisa-sim,
+  scipy,
+  sphinx,
+  sphinx-issues,
+  towncrier,
+
+  # checks
+  deepdiff,
+  hypothesis,
+  lxml,
+  pip,
+  pytest-asyncio,
+  pytest-mock,
+  pytest-rerunfailures,
+  pytest-xdist,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
   pname = "qcodes";
-  version = "0.39.0";
-  format = "pyproject";
+  version = "0.50.0";
+  pyproject = true;
 
-  disabled = pythonOlder "3.9";
-
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "sha256-zKn9LN7FBxKUfYSxUV1O6fB2s/B5bQpGDZTrK4DcxmU=";
+  src = fetchFromGitHub {
+    owner = "microsoft";
+    repo = "Qcodes";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-pOzIhqI4XmJm3GiGN2+zOALEogyB4qDgB71TJoLKd+4=";
   };
 
-  nativeBuildInputs = [
+  build-system = [
     setuptools
     versioningit
   ];
 
-  propagatedBuildInputs = [
+  dependencies = [
     broadbean
+    cf-xarray
+    dask
     h5netcdf
     h5py
-    ipywidgets
     ipykernel
+    ipython
+    ipywidgets
     jsonschema
     matplotlib
     numpy
-    opencensus
-    opencensus-ext-azure
+    opentelemetry-api
     packaging
     pandas
+    pillow
+    pyarrow
     pyvisa
     ruamel-yaml
     tabulate
-    typing-extensions
     tqdm
+    typing-extensions
     uncertainties
     websockets
     wrapt
     xarray
-    ipython
-    pillow
-    rsa
-  ] ++ lib.optionals (pythonOlder "3.10") [
-    importlib-metadata
   ];
 
-  passthru.optional-dependencies = {
-    loop = [
-      qcodes-loop
+  optional-dependencies = {
+    docs = [
+      # autodocsumm
+      furo
+      jinja2
+      nbsphinx
+      pyvisa-sim
+      # qcodes-loop
+      scipy
+      sphinx
+      # sphinx-favicon
+      sphinx-issues
+      # sphinx-jsonschema
+      # sphinxcontrib-towncrier
+      towncrier
     ];
-    slack = [
-      slack-sdk
+    loop = [
+      # qcodes-loop
+    ];
+    refactor = [
+      libcst
+    ];
+    zurichinstruments = [
+      # zhinst-qcodes
     ];
   };
-
-  __darwinAllowLocalNetworking = true;
 
   nativeCheckInputs = [
     deepdiff
     hypothesis
+    libcst
     lxml
+    pip
     pytest-asyncio
     pytest-mock
     pytest-rerunfailures
@@ -119,29 +144,63 @@ buildPythonPackage rec {
     sphinx
   ];
 
+  __darwinAllowLocalNetworking = true;
+
   pytestFlagsArray = [
+    "-v"
     # Follow upstream with settings
+    "-m 'not serial'"
+    "--hypothesis-profile ci"
     "--durations=20"
   ];
 
   disabledTestPaths = [
-    # depends on qcodes-loop, causing a cyclic dependency
-    "qcodes/tests/dataset/measurement/test_load_legacy_data.py"
+    # Test depends on qcodes-loop, causing a cyclic dependency
+    "tests/dataset/measurement/test_load_legacy_data.py"
+    # TypeError
+    "tests/dataset/test_dataset_basic.py"
   ];
 
-  pythonImportsCheck = [
-    "qcodes"
+  disabledTests = [
+    # Tests are time-sensitive and power-consuming
+    # Those tests fails repeatably and are flaky
+    "test_access_channels_by_slice"
+    "test_aggregator"
+    "test_datasaver"
+    "test_do1d_additional_setpoints_shape"
+    "test_dond_1d_additional_setpoints_shape"
+    "test_field_limits"
+    "test_get_array_in_scalar_param_data"
+    "test_get_parameter_data"
+    "test_ramp_safely"
+
+    # more flaky tests
+    # https://github.com/microsoft/Qcodes/issues/5551
+    "test_query_close_once_at_init"
+    "test_step_ramp"
   ];
+
+  pythonImportsCheck = [ "qcodes" ];
+
+  # Remove the `asyncio_default_fixture_loop_scope` option as it has been introduced in newer `pytest-asyncio` v0.24
+  # which is not in nixpkgs yet:
+  # pytest.PytestConfigWarning: Unknown config option: asyncio_default_fixture_loop_scope
+  postPatch = ''
+    substituteInPlace pyproject.toml \
+      --replace-fail 'default-version = "0.0"' 'default-version = "${version}"' \
+      --replace-fail 'asyncio_default_fixture_loop_scope = "function"' ""
+  '';
 
   postInstall = ''
     export HOME="$TMPDIR"
   '';
 
-  meta = with lib; {
-    homepage = "https://qcodes.github.io/Qcodes/";
+  meta = {
     description = "Python-based data acquisition framework";
     changelog = "https://github.com/QCoDeS/Qcodes/releases/tag/v${version}";
-    license = licenses.mit;
-    maintainers = with maintainers; [ evilmav ];
+    downloadPage = "https://github.com/QCoDeS/Qcodes";
+    homepage = "https://qcodes.github.io/Qcodes/";
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ evilmav ];
   };
 }

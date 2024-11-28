@@ -1,46 +1,35 @@
-{ lib
-, buildPythonPackage
-, pythonOlder
-, fetchFromGitHub
-, hatchling
-, opentelemetry-api
-, opentelemetry-instrumentation
-, opentelemetry-semantic-conventions
-, opentelemetry-test-utils
-, opentelemetry-util-http
-, wrapt
-, pytestCheckHook
-, aiohttp
+{
+  buildPythonPackage,
+  pythonOlder,
+  hatchling,
+  opentelemetry-api,
+  opentelemetry-instrumentation,
+  opentelemetry-semantic-conventions,
+  opentelemetry-test-utils,
+  opentelemetry-util-http,
+  wrapt,
+  pytestCheckHook,
+  aiohttp,
 }:
-let
-  pname = "opentelemetry-instrumentation-aiohttp-client";
-  version = "0.39b0";
-in
+
 buildPythonPackage {
-  inherit pname version;
-  disabled = pythonOlder "3.7";
+  inherit (opentelemetry-instrumentation) version src;
+  pname = "opentelemetry-instrumentation-aiohttp-client";
+  pyproject = true;
 
-  src = fetchFromGitHub {
-    owner = "open-telemetry";
-    repo = "opentelemetry-python-contrib";
-    rev = "refs/tags/v${version}";
-    hash = "sha256-HFDebR3d1osFAIlNuIbs5s+uPeTTJ1xkz+BpE5BpciU=";
-    sparseCheckout = [ "/instrumentation/${pname}" ];
-  } + "/instrumentation/${pname}";
+  disabled = pythonOlder "3.8";
 
-  format = "pyproject";
+  sourceRoot = "${opentelemetry-instrumentation.src.name}/instrumentation/opentelemetry-instrumentation-aiohttp-client";
 
-  nativeBuildInputs = [
-    hatchling
-  ];
+  build-system = [ hatchling ];
 
-  propagatedBuildInputs = [
+  dependencies = [
+    aiohttp
     opentelemetry-api
     opentelemetry-instrumentation
     opentelemetry-semantic-conventions
     opentelemetry-util-http
     wrapt
-    aiohttp
   ];
 
   # missing https://github.com/ezequielramos/http-server-mock
@@ -54,10 +43,8 @@ buildPythonPackage {
 
   pythonImportsCheck = [ "opentelemetry.instrumentation.aiohttp_client" ];
 
-  meta = with lib; {
+  meta = opentelemetry-instrumentation.meta // {
     homepage = "https://github.com/open-telemetry/opentelemetry-python-contrib/blob/main/instrumentation/opentelemetry-instrumentation-aiohttp-client";
     description = "OpenTelemetry Instrumentation for aiohttp-client";
-    license = licenses.asl20;
-    maintainers = with maintainers; [ happysalada ];
   };
 }

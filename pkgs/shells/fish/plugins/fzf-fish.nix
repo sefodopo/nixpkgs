@@ -5,13 +5,13 @@ let
 in
 buildFishPlugin rec {
   pname = "fzf.fish";
-  version = "9.9";
+  version = "10.3";
 
   src = fetchFromGitHub {
     owner = "PatrickF1";
     repo = "fzf.fish";
     rev = "v${version}";
-    sha256 = "sha256-Aqr6+DcOS3U1R8o9Mlbxszo5/Dy9viU4KbmRGXo95R8=";
+    hash = "sha256-T8KYLA/r/gOKvAivKRoeqIwE2pINlxFQtZJHpOy9GMM=";
   };
 
   nativeCheckInputs = [ fzf fd unixtools.script procps ];
@@ -31,13 +31,14 @@ buildFishPlugin rec {
     # Disable tests that are failing, because there is not 'rev' command
     rm tests/preview_file/custom_file_preview.fish
   '' + (
-    if stdenv.isDarwin then ''script /dev/null fish -c "fishtape tests/*/*.fish"''
+    if stdenv.hostPlatform.isDarwin then ''script /dev/null fish -c "fishtape tests/*/*.fish"''
     else ''script -c 'fish -c "fishtape tests/*/*.fish"' ''
   );
 
   meta = with lib; {
     description = "Augment your fish command line with fzf key bindings";
     homepage = "https://github.com/PatrickF1/fzf.fish";
+    changelog = "https://github.com/PatrickF1/fzf.fish/releases/tag/${src.rev}";
     license = licenses.mit;
     maintainers = with maintainers; [ pacien natsukium ];
   };
