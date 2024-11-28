@@ -1,0 +1,132 @@
+diff --git a/bluezupdate.patch b/bluezupdate.patch
+new file mode 100644
+index 0000000..9174987
+--- /dev/null
++++ b/bluezupdate.patch
+@@ -0,0 +1,22 @@
++diff --git a/src/bleinterfacebluez.cpp b/src/bleinterfacebluez.cpp
++index eba8e0c..f685633 100644
++--- a/src/bleinterfacebluez.cpp
+++++ b/src/bleinterfacebluez.cpp
++@@ -85,7 +85,7 @@ void BLEInterfaceBluez::addDevices(std::vector<std::shared_ptr<SimpleBluez::Devi
++ void BLEInterfaceBluez::readCharacteristicByService(const std::shared_ptr<SimpleBluez::Service> &service )
++ {
++     for (auto charac : service->characteristics()) {
++-        SimpleBluez::ByteArray value = charac->read();
+++        std::string value = std::string(charac->read());
++         auto battery_value = hex2dec(QString::fromStdString(value.c_str()).toUtf8().toHex().toStdString());
++         qDebug() << "Characteristic uuid: " << charac->uuid();
++         qDebug() << "Characteristic contents: " << battery_value;
++@@ -95,7 +95,7 @@ void BLEInterfaceBluez::readCharacteristicByService(const std::shared_ptr<Simple
++                 QBluetoothUuid((QBluetoothUuid::DescriptorType::CharacteristicUserDescription)).toString(QUuid::WithoutBraces).toStdString()
++ 
++             );
++-            QByteArray hex = QByteArray::fromHex(QString::fromStdString(descp->read()).toLatin1().toHex());
+++            QByteArray hex = QByteArray::fromHex(QString::fromStdString(std::string(descp->read())).toLatin1().toHex());
++             QString str = QString::fromUtf8(hex);
++             qDebug() << "descriptors : " << str;
++             qDebug() << "descriptors : " << descp->uuid();
+diff --git a/flake.lock b/flake.lock
+new file mode 100644
+index 0000000..6d9e8a7
+--- /dev/null
++++ b/flake.lock
+@@ -0,0 +1,27 @@
++{
++  "nodes": {
++    "nixpkgs": {
++      "locked": {
++        "lastModified": 1732765734,
++        "narHash": "sha256-VLW2p0UiEQ0FwOBdoKvSlu29YM1w+wfEEz0YU+kkp9g=",
++        "owner": "NixOS",
++        "repo": "nixpkgs",
++        "rev": "c945a25c0b77ec991f74501bb245a36823ec6f9f",
++        "type": "github"
++      },
++      "original": {
++        "owner": "NixOS",
++        "ref": "master",
++        "repo": "nixpkgs",
++        "type": "github"
++      }
++    },
++    "root": {
++      "inputs": {
++        "nixpkgs": "nixpkgs"
++      }
++    }
++  },
++  "root": "root",
++  "version": 7
++}
+diff --git a/flake.nix b/flake.nix
+new file mode 100644
+index 0000000..7761b62
+--- /dev/null
++++ b/flake.nix
+@@ -0,0 +1,52 @@
++{
++  inputs.nixpkgs.url = "github:NixOS/nixpkgs/master";
++
++  outputs =
++    {
++      nixpkgs,
++      self,
++    }:
++    let
++      system = "x86_64-linux";
++      pkgs = import nixpkgs {
++        inherit system;
++        overlays = [
++          (final: prev: {
++            simpleBluez = prev.simpleBluez.overrideAttrs(f : p : {
++              version = "0.8.1";
++              src = p.src.override {
++                rev = "v${f.version}";
++                hash = "sha256-rtctBKHujVqZXkblgoaaOQmrHT15HiDmev+rS4ZnYqI=";
++              };
++            });})];
++      };
++    in
++    {
++      packages.${system} = {
++        default = pkgs.zmkBATx.overrideAttrs (
++          final: prev: {
++            src = ./.;
++            prePatch = ''
++              rm -rf src/thirdparty
++              ln -s ${pkgs.simpleBluez.dev}/include src/thirdparty
++            '';
++            patches = [
++              ./bluezupdate.patch
++            ];
++          }
++        );
++        testing = pkgs.zmkBATx;
++      };
++
++      devShells.${system}.default = pkgs.mkShell {
++        packages = with pkgs; [
++          bear
++          qtcreator
++          clang-tools
++        ];
++        inputsFrom = [
++          self.packages.${system}.default
++        ];
++      };
++    };
++}
+diff --git a/src/bleinterfacebluez.cpp b/src/bleinterfacebluez.cpp
+index a5bd2ac..829ce79 100644
+--- a/src/bleinterfacebluez.cpp
++++ b/src/bleinterfacebluez.cpp
+@@ -86,7 +86,7 @@ void BLEInterfaceBluez::addDevices(std::vector<std::shared_ptr<SimpleBluez::Devi
+ void BLEInterfaceBluez::readCharacteristicByService(const std::shared_ptr<SimpleBluez::Service> &service )
+ {
+     for (auto charac : service->characteristics()) {
+-        SimpleBluez::ByteArray value = charac->read();
++        std::string value = charac->read();
+         auto battery_value = hex2dec(QString::fromStdString(value.c_str()).toUtf8().toHex().toStdString());
+         qDebug() << "Characteristic uuid: " << charac->uuid();
+         qDebug() << "Characteristic contents: " << battery_value;

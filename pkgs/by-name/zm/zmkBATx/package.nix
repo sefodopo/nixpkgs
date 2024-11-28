@@ -34,6 +34,15 @@ stdenv.mkDerivation (finalAttrs: {
     simpleDBus
   ];
 
+  prePatch = ''
+    rm -r src/thirdparty
+    ln -s ${simpleBluez.dev}/include src/thirdparty
+  '';
+
+  patches = [
+    ./simpleBluez_update.patch
+  ];
+
   postPatch = ''
     substituteInPlace zmkBATx.pro --replace-fail "/usr/include/dbus-1.0" "${dbus.dev}/include/dbus-1.0"
     substituteInPlace zmkBATx.pro --replace-fail "/usr/lib/x86_64-linux-gnu/dbus-1.0/include" "${dbus.lib}/lib/dbus-1.0/include"
