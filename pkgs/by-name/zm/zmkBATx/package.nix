@@ -11,13 +11,13 @@
 stdenv.mkDerivation (finalAttrs: {
   pname = "zmkBATx";
 
-  version = "1.0.1";
+  version = "1.0.2";
 
   src = fetchFromGitHub {
-    owner = "mh4x0f";
+    owner = "sefodopo";
     repo = "zmkBATx";
-    rev = "v${finalAttrs.version}";
-    hash = "sha256-xbiwRHVTuaZDH3RZlMK2CpKBThtS8g6q5r3C+OccDZg=";
+    rev = "update_simpleBluez_0.8.1";
+    hash = "sha256-g8ng5pP5rLiSOA81KtQiJOPZJI4P3YwS7DArx5kbWLk=";
   };
 
   nativeBuildInputs = [
